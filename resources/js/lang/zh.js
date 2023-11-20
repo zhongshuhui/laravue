@@ -165,4 +165,7 @@ export default {
     closeOthers: '关闭其它',
     closeAll: '关闭所有',
   },
+  receive: {
+    account_name: '店铺',
+  },
 };

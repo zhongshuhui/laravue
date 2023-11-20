@@ -1,12 +1,20 @@
 <template>
   <div class="app-container">
+
     <div class="filter-container">
+      <el-input v-model="listQuery.account_name" :placeholder="$t('receive.account_name')" style="width: 200px;" class="filter-item" @keyup.enter.native="handleFilter" />
+      <el-button class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
+        {{ $t('table.search') }}
+      </el-button>
       <el-button class="filter-item" type="primary" icon="el-icon-plus" @click="handleCreateForm">
         {{ $t('table.add') }}
       </el-button>
+      <el-button :loading="downloadLoading" type="primary" icon="document" @click="handleDownload">
+        {{ $t('excel.export') }} Excel
+      </el-button>
     </div>
-    <el-table v-loading="loading" :data="list" border fit highlight-current-row>
-      <el-table-column align="center" label="ID" width="80">
+    <el-table :key="tableKey" v-loading="loading" :data="list" border fit highlight-current-row style="width: 100%;" @sort-change="sortChange">
+      <el-table-column :label="$t('table.id')" prop="id" sortable="custom" align="center" width="80">
         <template slot-scope="scope">
           <span>{{ scope.row.id }}</span>
         </template>
@@ -76,6 +84,7 @@
         </template>
       </el-table-column>
     </el-table>
+    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" @pagination="getList" />
     <el-dialog :title="'新增余额'" :visible.sync="receivableFormVisible">
       <div class="form-container">
         <el-form ref="receivableForm" :model="currentReceivable" label-position="left" label-width="150px" style="max-width: 500px;">
@@ -108,17 +117,31 @@
 
 <script>
 import Resource from '@/api/resource';
+import { parseTime } from '@/utils';
+import Pagination from '@/components/Pagination'; // Secondary package based on el-pagination
+
 const receivableResource = new Resource('receivables');
 
 export default {
   name: 'ReceivableList',
+  components: { Pagination },
   data() {
     return {
+      tableKey: 0,
       list: [],
+      total: 0,
       loading: true,
       receivableFormVisible: false,
       currentReceivable: {},
       formTitle: '',
+      downloadLoading: false,
+      listQuery: {
+        page: 1,
+        limit: 10,
+        account_name: undefined,
+        sort_column: 'id',
+        sort_type: 'asc',
+      },
     };
   },
   created() {
@@ -127,9 +150,14 @@ export default {
   methods: {
     async getList() {
       this.loading = true;
-      const { data } = await receivableResource.list({});
+      const { data, meta } = await receivableResource.list(this.listQuery);
       this.list = data;
+      this.total = meta.total;
       this.loading = false;
+    },
+    handleFilter() {
+      this.listQuery.page = 1;
+      this.getList();
     },
     handleSubmit() {
       if (this.currentReceivable.id !== undefined) {
@@ -201,6 +229,42 @@ export default {
       this.formTitle = 'Edit Receivable';
       this.currentReceivable = this.list.find(receivable => receivable.id === id);
       this.receivableFormVisible = true;
+    },
+    handleDownload() {
+      this.downloadLoading = true;
+      import('@/vendor/Export2Excel').then(excel => {
+        const tHeader = ['年月', '店铺', '余额'];
+        const filterVal = ['happen_month', 'account_name', 'end_rmb_balance'];
+        const list = this.list;
+        const data = this.formatJson(filterVal, list);
+        excel.export_json_to_excel({
+          header: tHeader,
+          data,
+          filename: this.filename,
+          autoWidth: this.autoWidth,
+          bookType: this.bookType,
+        });
+        this.downloadLoading = false;
+      });
+    },
+    formatJson(filterVal, jsonData) {
+      return jsonData.map(v => filterVal.map(j => {
+        if (j === 'timestamp') {
+          return parseTime(v[j]);
+        } else {
+          return v[j];
+        }
+      }));
+    },
+    sortChange(data) {
+      const { prop, order } = data;
+      this.listQuery.sort_column = prop;
+      if (order === 'ascending') {
+        this.listQuery.sort_type = 'asc';
+      } else {
+        this.listQuery.sort_type = 'desc';
+      }
+      this.handleFilter();
     },
   },
 };

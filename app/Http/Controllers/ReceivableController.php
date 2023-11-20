@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 
 class ReceivableController extends Controller
@@ -17,9 +18,19 @@ class ReceivableController extends Controller
      *
      * @return AnonymousResourceCollection
      */
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return ReceivableResource::collection(Receivable::all());
+        $searchParams = $request->all();
+        $receivableQuery = Receivable::query();
+        $limit = Arr::get($searchParams, 'limit', static::ITEM_PER_PAGE);
+        $account_name = Arr::get($searchParams, 'account_name', '');
+        $sort_column = Arr::get($searchParams, 'sort_column', 'id');
+        $soft_type = Arr::get($searchParams, 'sort_type', 'asc');
+        if (!empty($account_name)) {
+            $receivableQuery->where('account_name', 'LIKE', '%' . $account_name . '%');
+        }
+        $receivableQuery->orderBy($sort_column,$soft_type);
+        return ReceivableResource::collection($receivableQuery->paginate($limit));
     }
 
     /**
