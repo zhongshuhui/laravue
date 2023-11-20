@@ -147,3 +147,4 @@ Route::get('articles/{id}/pageviews', function ($id) {
 
     return response()->json(new JsonResponse(['pvData' => $data]));
 });
+Route::apiResource('receivables', 'ReceivableController');
