@@ -142,6 +142,7 @@ export default {
         sort_column: 'id',
         sort_type: 'asc',
       },
+      socket: '',
     };
   },
   created() {
